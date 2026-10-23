@@ -1,0 +1,13 @@
+import { createWriteStream } from 'node:fs';
+import { mkdir } from 'node:fs/promises';
+import { pipeline } from 'node:stream/promises';
+import { spawn } from 'node:child_process';
+import { resolve } from 'node:path';
+import { ROOT } from './process.mjs';
+const directory = resolve(ROOT, 'data/backups');
+await mkdir(directory, { recursive: true });
+const path = resolve(directory, `erams-${new Date().toISOString().replaceAll(':', '-')}.dump`);
+const child = spawn('docker', ['compose', 'exec', '-T', 'postgres', 'pg_dump', '-U', 'erams', '-d', 'erams', '--format=custom'], { cwd: ROOT, windowsHide: true, stdio: ['ignore', 'pipe', 'inherit'] });
+const exit = new Promise((done, reject) => { child.once('error', reject); child.once('exit', code => code === 0 ? done() : reject(new Error(`pg_dump failed with exit code ${code}`))); });
+await Promise.all([pipeline(child.stdout, createWriteStream(path, { flags: 'wx' })), exit]);
+console.log(`Backup saved to ${path}. Protect the backup and keep BIOMETRIC_KEY separately.`);

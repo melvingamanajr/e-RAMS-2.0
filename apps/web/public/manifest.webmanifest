@@ -1,0 +1,10 @@
+{
+  "name": "e-RAMS · San Juan Attendance",
+  "short_name": "e-RAMS",
+  "start_url": "/kiosk",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f7f3",
+  "theme_color": "#176b5c",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

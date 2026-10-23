@@ -1,0 +1,10 @@
+import { config } from 'dotenv';
+import { resolve } from 'node:path';
+import { ROOT, run } from './process.mjs';
+config({ path: resolve(ROOT, '.env') });
+const command = process.argv[2];
+const cwd = resolve(ROOT, 'apps/api');
+if (command === 'generate') await run('node_modules/prisma/build/index.js', ['generate'], { cwd });
+else if (command === 'deploy') await run('node_modules/prisma/build/index.js', ['migrate', 'deploy'], { cwd });
+else if (command === 'seed') await run('node_modules/tsx/dist/cli.mjs', ['prisma/seed.ts'], { cwd });
+else throw new Error('Use generate, deploy, or seed');

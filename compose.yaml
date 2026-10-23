@@ -1,0 +1,66 @@
+name: erams
+services:
+  postgres:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_DB: erams
+      POSTGRES_USER: erams
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?Set DATABASE_PASSWORD}
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U erams -d erams"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    command: [redis-server, --appendonly, 'yes']
+    volumes: [redis-data:/data]
+    restart: unless-stopped
+  migrate:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://erams:${DATABASE_PASSWORD}@postgres:5432/erams
+    command: [node, scripts/database.mjs, deploy]
+    depends_on:
+      postgres: { condition: service_healthy }
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://erams:${DATABASE_PASSWORD}@postgres:5432/erams
+      REDIS_URL: redis://redis:6379
+      AI_URL: http://face:8000
+      PORT: '3000'
+      TRUST_PROXY: 'true'
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_started }
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+  web:
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    ports: ['127.0.0.1:8080:8080']
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+  face:
+    profiles: [face]
+    build: services/face
+    environment:
+      AI_SERVICE_KEY: ${AI_SERVICE_KEY:?Set AI_SERVICE_KEY}
+      MODEL_ROOT: /models
+      FACE_MODEL: buffalo_l
+      ALLOW_UNVERIFIED_LIVENESS: ${ALLOW_UNVERIFIED_LIVENESS:-false}
+    volumes: [./data/models:/models:ro]
+    restart: unless-stopped
+volumes:
+  postgres-data:
+  redis-data:

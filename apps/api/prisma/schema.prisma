@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  HR
+  AUDITOR
+}
+
+enum PunchKind {
+  AM_IN
+  AM_OUT
+  PM_IN
+  PM_OUT
+}
+
+enum ShiftKind {
+  FIXED
+  SLIDING
+  NIGHT
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(HR)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  sessions     Session[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  revokedAt DateTime?
+  @@index([userId])
+}
+
+model Shift {
+  id           String    @id @default(uuid())
+  name         String    @unique
+  kind         ShiftKind @default(FIXED)
+  startMinute  Int       @default(480)
+  endMinute    Int       @default(1020)
+  breakMinutes Int       @default(60)
+  graceMinutes Int       @default(0)
+  flexMinutes  Int       @default(0)
+  workDays     Int[]     @default([1, 2, 3, 4, 5])
+  employees    Employee[]
+}
+
+model Employee {
+  id           String    @id @default(uuid())
+  employeeNo   String    @unique
+  firstName    String
+  lastName     String
+  department   String
+  position     String
+  active       Boolean   @default(true)
+  shiftId      String
+  shift        Shift     @relation(fields: [shiftId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  biometric    Biometric?
+  consents     Consent[]
+  punches      Punch[]
+}
+
+model Consent {
+  id            String   @id @default(uuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  policyVersion String
+  signature     String
+  recordedBy    String
+  grantedAt     DateTime @default(now())
+  withdrawnAt   DateTime?
+  biometric     Biometric?
+}
+
+model Biometric {
+  id                String   @id @default(uuid())
+  employeeId        String   @unique
+  employee          Employee @relation(fields: [employeeId], references: [id])
+  consentId         String   @unique
+  consent           Consent  @relation(fields: [consentId], references: [id])
+  encryptedTemplate String
+  model             String
+  createdAt         DateTime @default(now())
+}
+
+model Punch {
+  id            String    @id @default(uuid())
+  employeeId    String
+  employee      Employee  @relation(fields: [employeeId], references: [id])
+  kind          PunchKind
+  occurredAt    DateTime
+  workDate      String
+  source        String
+  confidence    Float?
+  reason        String?
+  recordedBy    String
+  idempotencyKey String   @unique
+  shiftSnapshot Json
+  voidedAt      DateTime?
+  voidReason    String?
+  createdAt     DateTime  @default(now())
+  @@index([employeeId, workDate])
+  @@index([workDate, occurredAt])
+}
+
+model Audit {
+  id         String   @id @default(uuid())
+  actorId    String
+  action     String
+  entityId   String
+  metadata   Json
+  createdAt  DateTime @default(now())
+  @@index([createdAt])
+}
+
+model Kiosk {
+  id        String   @id @default(uuid())
+  name      String
+  tokenHash String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}

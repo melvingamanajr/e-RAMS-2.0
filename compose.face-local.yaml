@@ -1,0 +1,5 @@
+# Use with: docker compose -f compose.yaml -f compose.face-local.yaml --profile face up -d face
+# Publishes only the face service for the Node-based local development setup.
+services:
+  face:
+    ports: ['127.0.0.1:8000:8000']
